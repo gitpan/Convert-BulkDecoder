@@ -1,15 +1,15 @@
 package Convert::BulkDecoder;
 
 # Convert::BulkDecoder - Extract binary data from mail and news messages
-# RCS Info        : $Id: BulkDecoder.pm,v 1.6 2003-01-31 15:52:36+01 jv Exp jv $
+# RCS Info        : $Id: BulkDecoder.pm,v 1.8 2003-02-03 18:17:45+01 jv Exp $
 # Author          : Johan Vromans
 # Created On      : Wed Jan 29 16:59:58 2003
 # Last Modified By: Johan Vromans
-# Last Modified On: Fri Jan 31 22:19:14 2003
-# Update Count    : 74
+# Last Modified On: Mon Feb  3 18:17:10 2003
+# Update Count    : 77
 # Status          : Unknown, Use with caution!
 
-$VERSION = "0.03";
+$VERSION = "1.00";
 
 use strict;
 use integer;
@@ -657,7 +657,7 @@ length and checksum tests.
 
 =item crc
 
-When non-zero, the CRC of the data is verified, if possible.
+When non-zero (default), the CRC of the data is verified, if possible.
 
 =item md5
 
@@ -765,6 +765,8 @@ extracted.
 
 Only yencoded data can be CRC checked. CRC checking is slow, so only
 the partial checksums are verified.
+
+Multi-message MIME attachments are not handled yet.
 
 =head1 AUTHOR
 

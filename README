@@ -1,4 +1,4 @@
-Convert::BulkDecoder version 0.03
+Convert::BulkDecoder version 1.00
 =================================
 
 Convert::BulkDecoder provides an easy way to decode binaries from 
@@ -9,7 +9,7 @@ For example, to decode a multi-part yencoded article from the
 command line:
 
   perl -MConvert::BulkDecoder \
-   -e 'Convert::BulkDecoder(crc=>1)->decode([<>])' \
+   -e 'Convert::BulkDecoder->new->decode([<>])' \
      part01.yenc part02.yenc ...
 
 From a program:
@@ -25,6 +25,11 @@ From a program:
 
 Note that it doesn't matter if the articles contain uuencoded,
 yencoded or MIME encoded data.
+
+An example program 'mfetch' is included to fetch and extract
+the contents from news articles:
+
+  mfetch alt.binaries.linux 31544 31542 31541 31543 31545
 
 INSTALLATION
 

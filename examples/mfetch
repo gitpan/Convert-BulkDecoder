@@ -1,12 +1,12 @@
 #!/usr/bin/perl -w
 
-my $RCS_Id = '$Id: mfetch.pl,v 1.1 2003-01-18 21:13:37+01 jv Exp jv $ ';
+my $RCS_Id = '$Id: mfetch,v 1.3 2003-02-01 13:55:37+01 jv Exp $ ';
 
 # Author          : Johan Vromans
 # Created On      : Fri Jan 17 20:18:22 2003
 # Last Modified By: Johan Vromans
-# Last Modified On: Thu Jan 30 15:56:39 2003
-# Update Count    : 111
+# Last Modified On: Sat Feb  1 13:55:10 2003
+# Update Count    : 125
 # Status          : Unknown, Use with caution!
 
 ################ Common stuff ################
@@ -19,7 +19,7 @@ my $my_package = 'Sciurix';
 # Program name and version.
 my ($my_name, $my_version) = $RCS_Id =~ /: (.+).pl,v ([\d.]+)/;
 # Tack '*' if it is not checked in into RCS.
-$my_version .= '*' if length('$Locker: jv $ ') > 12;
+$my_version .= '*' if length('$Locker:  $ ') > 12;
 
 ################ Command line parameters ################
 
@@ -46,24 +46,10 @@ $destdir .= "/" if $destdir;
 
 ################ Presets ################
 
-my $TMPDIR = $ENV{TMPDIR} || $ENV{TEMP} || '/usr/tmp';
-
-use FindBin;
-use lib $FindBin::Bin;
-
-use Cwd qw(getcwd);
-my $cwd = getcwd();
-
-my $Current = $cwd;
-$Current =~ s:^.*?/([^/]+$):$1:;
-
 ################ The Process ################
 
 use Net::NNTP;
-use Convert::BulkDecoder;
-
-#use Data::Dumper;
-#$Data::Dumper::Indent = 1;
+use Convert::BulkDecoder 0.03;
 
 my $nntp;
 my $server;
@@ -140,10 +126,13 @@ unless ( $rawfetch ) {
 	$tag .= " $speed Kbps";
     }
 
-    my $e = new Convert::BulkDecoder( destdir => $destdir,
-				      neat => \&neat );
+    my $e = new Convert::BulkDecoder(destdir => $destdir,
+				     neat => \&neat);
     my $res = $e->decode(\@art);
-    warn($e->{file}, ": $res$tag\n");
+
+    foreach my $parts ( @{$e->{parts}} ) {
+	warn($parts->{file}, ": ", $parts->{result}, $tag, "\n");
+    }
 }
 
 END {
@@ -159,18 +148,6 @@ sub connect {
     $nntp->reader();
     # Position at group.
     die("No such group: $group\n") unless $nntp->group($group);
-}
-
-sub make_relfil {
-    my ($orig, $new) = @_;
-    warn("# $new -> $orig\n");
-    my @new = split('/', $new);
-    my @orig = split('/', $orig);
-    while ( @new > 1 and @orig > 1 and $new[0] eq $orig[0] ) {
-	shift(@new);
-	shift(@orig);
-    }
-    ("../" x (@new - 1)) . join('/',@orig);
 }
 
 sub xwarn {
@@ -236,3 +213,96 @@ Usage: $0 -neat
 EndOfUsage
     exit $exit if defined $exit && $exit != 0;
 }
+
+__END__
+
+=head1 NAME
+
+mfetch - fetch and decode (multi-part) articles from a NNTP server
+
+=head1 SYNOPSIS
+
+  mfetch newszilla.news.com:alt.binaries.sounds.mp3.camel 35351 35353 35355 35350 35356
+
+  NNTPHOST=newszilla.news.com; export NNTPHOST
+  mfetch alt.binaries.sounds.mp3.camel 35351:35353:35355 35350:35356
+
+  mfetch --destdir my_mp3_dir alt.binaries.sounds.mp3.camel 35351:35353:35355 35350:35356
+
+=head1 DESCRIPTION
+
+mfetch retrieves news articles from an NNTP server, and decodes them
+to extract the (possible binary) contents. It is particular useful for
+news postings that contain programs or binary data like sounds and
+images.
+
+=head1 COMMAND LINE ARGUMENTS
+
+mfetch takes two arguments: the name of the news group, and a list of
+article numbers. The name of the news group may be prefixed with the
+name of an NNTP server, separated by a colon. If the NNTP server is
+left unspecified, mfetch uses standard environment variables to find
+the NNTP server name, see below.
+
+The list of article numbers may be passed as distinct arguments, or
+combined in colon separated lists, or any combination thereof.
+
+mfetch uses Convert::BulkDecoder to decode the contents, and hence
+supports UUdecoding, ydecoding and MIME attachments.
+
+For yencoded contents, file consistency is verified using length and
+checksum tests.
+
+=head1 COMMAND LINE OPTIONS
+
+=over
+
+=item --destdir I<dir>
+
+The name of the directory where the resultant contents must be placed.
+Default is to put the contents in the current directory.
+
+=item --fetch
+
+Just fetch the articles, and store them under the article numbers. No
+decoding is done.
+
+=item --delay I<secs>
+
+Pause for I<secs> seconds between article fetches to reduce the load
+of the network and server.
+
+=back
+
+=head1 LIMITATIONS
+
+Only yencoded data can be CRC checked. CRC checking is slow, so only
+the partial checksums are verified.
+
+For multi-part submissions, the article numbers must be passed in the
+right order.
+
+=head1 DEPENDENCIES
+
+L<Net::NNTP>, L<Convert::BulkDecoder>.
+
+=head1 ENVIRONMENT VARIABLES
+
+To find the news server, mfetch uses environment variables
+C<NNTPSERVER>, C<NEWSHOST>, or defaults to a host named C<news>.
+
+=head1 AUTHOR
+
+Johan Vromans, Squirrel Consultancy <jvromans@squirrel.nl>
+
+=head1 SEE ALSO
+
+L<Convert::BulkDecoder>, L<newsgrab>.
+
+=head1 COPYRIGHT AND LICENCE
+
+Copyright 2003 Squirrel Consultancy.
+
+License: Artistic.
+
+=cut
