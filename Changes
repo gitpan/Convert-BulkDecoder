@@ -1,5 +1,17 @@
 Revision history for Perl extension Convert::BulkDecoder.
 
+1.02  Mon Mar 31 12:35:00 2003
+
+	* Release 1.02
+
+	* BulkDecoder: Add binmode for non-Unix systems.
+
+	* mfetch: cleanups.
+
+1.00  Mon Feb  3 18:18:00 2003
+
+	* Release 1.00
+
 0.03  Fri Jan 31 22:23:32 2003
 
 	* BulkDecoder.pm: Allow multiple return values.

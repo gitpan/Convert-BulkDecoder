@@ -1,15 +1,15 @@
 package Convert::BulkDecoder;
 
 # Convert::BulkDecoder - Extract binary data from mail and news messages
-# RCS Info        : $Id: BulkDecoder.pm,v 1.8 2003-02-03 18:17:45+01 jv Exp $
+# RCS Info        : $Id: BulkDecoder.pm,v 1.10 2003-03-31 12:28:55+02 jv Exp $
 # Author          : Johan Vromans
 # Created On      : Wed Jan 29 16:59:58 2003
 # Last Modified By: Johan Vromans
-# Last Modified On: Mon Feb  3 18:17:10 2003
-# Update Count    : 77
+# Last Modified On: Mon Mar 31 12:25:11 2003
+# Update Count    : 84
 # Status          : Unknown, Use with caution!
 
-$VERSION = "1.00";
+$VERSION = "1.02";
 
 use strict;
 use integer;
@@ -136,6 +136,7 @@ sub uudecode {
 
 	    open (OUT, ">".$self->{file})
 	      or die("create(".$self->{file}.": $!\n");
+	    binmode(OUT);
 	    $doing = 1;		# Doing
 	    $self->{result} = "FAIL";
 	    next;
@@ -247,27 +248,29 @@ sub ydecode {
 		$pcrc = 0xffffffff;
 	    }
 
-	    # Now make use of the variables.
-	    # If this is a multipart message $ydec_part is defined.
-	    # What we need to do if the $ydec_part is different from 1
-	    # we need to open the file for appending!.
+	    # If the $ydec_part is different from 1
+	    # we need to open the file for appending.
 	    if ( -e $self->{file} ) {
-		if ( defined($ydec_part) ) {
-		    if ( $ydec_part != 1 ) {
-			# If we have a multipart message, the file exists
-			# and we are not at the first part, we should just
-			# open the file as an append. We assume that this is
-			# the multipart we were already processing.
-			#print "Opening $ydec_name for appending\n";
-			if ( !open(OUT, ">>".$self->{file}) ) {
-			    die("Couldn't open ".$self->{file}.
-				" for appending: $!\n");
-			}
+		if ( defined($ydec_part) && $ydec_part != 1 ) {
+		    # If we have a multipart message, the file exists
+		    # and we are not at the first part, we should just
+		    # open the file as an append. We assume that this is
+		    # the multipart we were already processing.
+		    #print "Opening $ydec_name for appending\n";
+		    if ( !open(OUT, ">>".$self->{file}) ) {
+			die("Couldn't open ".$self->{file}.
+			    " for appending: $!\n");
 		    }
+		}
+		elsif ( !open(OUT, ">".$self->{file}) ) {
+		    die("Couldn't create ".$self->{file}.": $!\n");
 		}
 	    }
 	    else {
 		# File doesn't exist. We open it for writing O' so plain.
+		if ( defined($ydec_part) && $ydec_part != 1 ) {
+		    die("Missing  ".$self->{file}. " for appending: $!\n");
+		}
 		if ( !open(OUT, ">".$self->{file}) ) {
 		    die("Couldn't create ".$self->{file}.": $!\n");
 		}
@@ -275,7 +278,7 @@ sub ydecode {
 	    }
 	    # Cancel any file translations.
 	    binmode(OUT);
-	    # Excellent.. We have detirmed all the info for this file we
+	    # Excellent.. We have determed all the info for this file we
 	    # need.. Skip till next line, this should contain the real
 	    # data.
 	    next;
@@ -472,6 +475,7 @@ sub ydecode_ydecode {
 		}
 	    }
 	    open(TMP, ">$file") || die("$file: $!\n");
+	    binmode(TMP);
 	    $copy++;
 	}
 	if ( $copy > 1 ) {	# check length
@@ -494,6 +498,7 @@ sub ydecode_ydecode {
 	if ( $self->{md5} ) {
 	    open(F, $self->{file})
 	      or die($self->{file} . " (reopen) $!\n");
+	    binmode(F);
 	    local($/) = undef;
 	    $self->{_md5}->add(<F>);
 	    close(F);
@@ -573,6 +578,7 @@ sub mimedecode {
 	my $bh = $part->{ME_Bodyhandle};
 	if ( $bh && defined $bh->{MBC_Data} ) {
 	    open (OUT, ">".$self->{file});
+	    binmode(OUT);
 	    my $size = 0;
 	    foreach ( @{$bh->{MBC_Data}} ) {
 		print OUT $_;
