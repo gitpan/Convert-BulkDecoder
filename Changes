@@ -1,0 +1,6 @@
+Revision history for Perl extension Convert::BulkDecoder.
+
+0.01  Wed Jan 29 12:51:44 2003
+	- original version; created by h2xs 1.21 with options
+		-A -X -n Convert::BulkDecoder
+

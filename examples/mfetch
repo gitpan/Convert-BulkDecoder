@@ -1,0 +1,238 @@
+#!/usr/bin/perl -w
+
+my $RCS_Id = '$Id: mfetch.pl,v 1.1 2003-01-18 21:13:37+01 jv Exp jv $ ';
+
+# Author          : Johan Vromans
+# Created On      : Fri Jan 17 20:18:22 2003
+# Last Modified By: Johan Vromans
+# Last Modified On: Thu Jan 30 15:56:39 2003
+# Update Count    : 111
+# Status          : Unknown, Use with caution!
+
+################ Common stuff ################
+
+use strict;
+use warnings;
+
+# Package name.
+my $my_package = 'Sciurix';
+# Program name and version.
+my ($my_name, $my_version) = $RCS_Id =~ /: (.+).pl,v ([\d.]+)/;
+# Tack '*' if it is not checked in into RCS.
+$my_version .= '*' if length('$Locker: jv $ ') > 12;
+
+################ Command line parameters ################
+
+use Getopt::Long 2.13;
+
+# Command line options.
+my $verbose = 0;		# verbose processing
+my $delay = 0;			# wait between fetches
+my $destdir = "";
+my $rawfetch = 0;		# just fetch
+
+# Development options (not shown with -help).
+my $debug = 0;			# debugging
+my $trace = 0;			# trace (show process)
+my $test = 0;			# test mode.
+
+# Process command line options.
+app_options();
+
+# Post-processing.
+$trace |= ($debug || $test);
+
+$destdir .= "/" if $destdir;
+
+################ Presets ################
+
+my $TMPDIR = $ENV{TMPDIR} || $ENV{TEMP} || '/usr/tmp';
+
+use FindBin;
+use lib $FindBin::Bin;
+
+use Cwd qw(getcwd);
+my $cwd = getcwd();
+
+my $Current = $cwd;
+$Current =~ s:^.*?/([^/]+$):$1:;
+
+################ The Process ################
+
+use Net::NNTP;
+use Convert::BulkDecoder;
+
+#use Data::Dumper;
+#$Data::Dumper::Indent = 1;
+
+my $nntp;
+my $server;
+my $group = shift;
+my @a = split(':',$group);
+app_usage(1) if @a > 2 || @a == 0;
+if ( @a > 1 ) {
+    $server = shift(@a);
+    $group = pop(@a);
+}
+$server ||= $ENV{NNTPSERVER} || $ENV{NEWSHOST} || "news";
+&connect($server, $group);
+
+my @alist = split(/:/, join(":",@ARGV));
+my @art;
+my $inx = "00";
+my $cnt = @alist;
+my $tag = "";
+
+my $st = time;			# elapsed time
+my $sz = 0;			# total size
+
+foreach my $id ( @alist ) {
+    $inx++;
+    $tag = sprintf("%s %s", $id, $nntp->xhdr("subject",$id)->{$id});
+    my $rtag = $tag;
+    $rtag =~ s/^(\d+)/$id  ($inx\/$cnt)/;
+    my $a = $nntp->article($id);
+    unless ( $a ) {
+	xwarn ("? $tag\n");
+	# Retry 1.
+	sleep(3);
+	$a = $nntp->article($id);
+	unless ( $a ) {
+	    xwarn ("? $tag\n");
+	    # Retry 2. Reset server.
+	    $nntp->close;
+	    sleep(3);
+	    &connect($server, $group);
+	    $a = $nntp->article($id);
+	    unless ( $a ) {
+		die("? $tag\n");
+	    }
+	}
+    }
+    xwarn ("+r $rtag\n");
+
+    $sz += length($_) foreach (@$a);	# for statistics
+
+    if ( $rawfetch ) {
+	my $file = $destdir.$id;
+	open (F, ">$file") or die("$file: $!\n");
+	print F @$a;
+	close(F);
+	next;
+    }
+
+    if ( @art ) {
+	# Remove extraneous headers to prevent uudecode problems.
+	while ( $a->[0] =~ /\S/ ) {
+	    shift(@$a);
+	}
+    }
+    push (@art, @$a);
+    sleep ($delay) if $delay;
+}
+
+unless ( $rawfetch ) {
+    my $delta = time - $st;
+    $tag = "";
+    if ( $delta && $sz ) {
+	my $speed = $sz / $delta;
+	$speed >>= 10;
+	$tag .= " $speed Kbps";
+    }
+
+    my $e = new Convert::BulkDecoder( destdir => $destdir,
+				      neat => \&neat );
+    my $res = $e->decode(\@art);
+    warn($e->{file}, ": $res$tag\n");
+}
+
+END {
+    $nntp->close if $nntp;
+}
+
+################ Subroutines ################
+
+sub connect {
+    my ($server, $group) = @_;
+    $nntp = new Net::NNTP($server);
+    die("No $server?\n") unless $nntp;
+    $nntp->reader();
+    # Position at group.
+    die("No such group: $group\n") unless $nntp->group($group);
+}
+
+sub make_relfil {
+    my ($orig, $new) = @_;
+    warn("# $new -> $orig\n");
+    my @new = split('/', $new);
+    my @orig = split('/', $orig);
+    while ( @new > 1 and @orig > 1 and $new[0] eq $orig[0] ) {
+	shift(@new);
+	shift(@orig);
+    }
+    ("../" x (@new - 1)) . join('/',@orig);
+}
+
+sub xwarn {
+    $_[0] =~ tr/\n -\176/_/c;
+    warn($_[0]);
+}
+
+sub neat {
+    local ($_) = @_;
+    s/^\[a-z]://i;
+    s/^.*?([^\\]+$)/$1/;
+    # Make lowercase.
+    $_ = lc($_);
+    # Spaces and unprintables to _.
+    s/\s+/_/g;
+    s/\.\.+/./g;
+    s/[\0-\040'`"\177-\240\/]/_/g;
+    # Remove leading dots.
+    s/^\.+//;
+    $_;
+}
+
+sub app_options {
+    my $help = 0;		# handled locally
+    my $ident = 0;		# handled locally
+
+    # Process options, if any.
+    # Make sure defaults are set before returning!
+    return unless @ARGV > 0;
+
+    if ( !GetOptions(
+		     'destdir=s'  => \$destdir,
+		     'fetch'	  => \$rawfetch,
+		     'delay=i'	  => \$delay,
+		     'ident'	  => \$ident,
+		     'verbose'	  => \$verbose,
+		     'trace'	  => \$trace,
+		     'help|?'	  => \$help,
+		     'debug'	  => \$debug,
+		    ) or $help )
+    {
+	app_usage(2);
+    }
+    app_ident() if $ident;
+}
+
+sub app_ident {
+    warn ("This is $my_package [$my_name $my_version]\n");
+}
+
+sub app_usage {
+    my ($exit) = @_;
+    app_ident();
+    print STDERR <<EndOfUsage;
+Usage: $0 [options] [server]:group artnum [...]
+    -destdir		where to store the results
+    -fetch		just fetch
+    -delay NN		wait NN secs between fetches
+    -help		this message
+    -ident		show identification
+    -verbose		verbose information
+Usage: $0 -neat
+EndOfUsage
+    exit $exit if defined $exit && $exit != 0;
+}
