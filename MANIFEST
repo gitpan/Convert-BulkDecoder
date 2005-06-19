@@ -28,3 +28,4 @@ t/ysdecode.t
 examples/mfetch
 
 
+META.yml                                 Module meta-data (added by MakeMaker)

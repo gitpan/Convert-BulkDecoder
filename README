@@ -1,4 +1,4 @@
-Convert::BulkDecoder version 1.00
+Convert::BulkDecoder version 1.03
 =================================
 
 Convert::BulkDecoder provides an easy way to decode binaries from 
@@ -55,7 +55,7 @@ Only yencoded data can be CRC checked.
 
 COPYRIGHT AND LICENCE
 
-Copyright 2003 Squirrel Consultancy.
+Copyright 2003,2005 Squirrel Consultancy.
 
 License: Artistic.
 
